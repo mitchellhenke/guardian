@@ -33,37 +33,27 @@ defmodule Guardian.Channel do
       let guardianToken = jQuery('meta[name="guardian_token"]').attr('content');
 
       let chan = socket.chan("pings", { guardian_token: guardianToken });
+
+  Consider using Guardian.Phoenix.Socket helpers directly and authenticating the connection rather than the channel.
   """
   defmacro __using__(opts) do
     opts = Enum.into(opts, %{})
     key = Map.get(opts, :key, :default)
 
     quote do
+      import Guardian.Phoenix.Socket
+
       def join(room, auth = %{ "guardian_token" => jwt }, socket) do
-        handle_guardian_join(room, jwt, %{ }, socket)
-      end
-
-      def handle_guardian_auth_failure(reason), do: { :error, %{ error: reason } }
-
-      defp handle_guardian_join(room, jwt, params, socket) do
-        case Guardian.decode_and_verify(jwt, params) do
-          { :ok, claims } ->
-            case Guardian.serializer.from_token(Map.get(claims, "sub")) do
-              { :ok, resource } ->
-                authed_socket = socket
-                |> assign(Guardian.Keys.claims_key(unquote(key)), claims)
-                |> assign(Guardian.Keys.resource_key(unquote(key)), resource)
-                join(room, %{ claims: claims, resource: resource }, authed_socket)
-              { :error, reason } -> handle_guardian_auth_failure(reason)
-            end
-          { :error, reason } -> handle_guardian_auth_failure(reason)
+        case sign_in(socket, jwt, params, key: key) do
+          {:ok, authed_socket, guardian_params} ->
+            join(room, Map.merge(params, guardian_params), authed_socket)
+          {:error, reason} -> handle_guardian_auth_failure(reason)
         end
       end
+
+      def handle_guardian_auth_failure(reason), do: {:error, %{ error: reason}}
 
       defoverridable [handle_guardian_auth_failure: 1]
     end
   end
-
-  def claims(socket, key \\ :default), do: socket.assigns[Guardian.Keys.claims_key(key)]
-  def current_resource(socket, key \\ :default), do: socket.assigns[Guardian.Keys.resource_key(key)]
 end
