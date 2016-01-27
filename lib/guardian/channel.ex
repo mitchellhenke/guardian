@@ -8,18 +8,18 @@ defmodule Guardian.Channel do
         use Phoenix.Channel
         use Guardian.Channel
 
-        def join(_room, %{ claims: claims, resource: resource }, socket) do
-          { :ok, %{ message: "Joined" }, socket }
+        def join(_room, %{claims: claims, resource: resource}, socket) do
+          {:ok, %{message: "Joined"}, socket}
         end
 
         def join(room, _, socket) do
-          { :error,  :authentication_required }
+          {:error, :authentication_required}
         end
 
         def handle_in("ping", _payload, socket) do
           user = Guardian.Channel.current_resource(socket)
-          broadcast socket, "pong", %{ message: "pong", from: user.email }
-          { :noreply, socket }
+          broadcast(socket, "pong", %{message: "pong", from: user.email})
+          {:noreply, socket}
         end
       end
 
@@ -43,7 +43,7 @@ defmodule Guardian.Channel do
     quote do
       import Guardian.Phoenix.Socket
 
-      def join(room, auth = %{ "guardian_token" => jwt }, socket) do
+      def join(room, auth = %{"guardian_token" => jwt}, socket) do
         case sign_in(socket, jwt, params, key: key) do
           {:ok, authed_socket, guardian_params} ->
             join(room, Map.merge(params, guardian_params), authed_socket)
@@ -51,7 +51,7 @@ defmodule Guardian.Channel do
         end
       end
 
-      def handle_guardian_auth_failure(reason), do: {:error, %{ error: reason}}
+      def handle_guardian_auth_failure(reason), do: {:error, %{error: reason}}
 
       defoverridable [handle_guardian_auth_failure: 1]
     end
